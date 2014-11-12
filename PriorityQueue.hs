@@ -20,17 +20,21 @@ isEmpty :: PriQue a -> Bool
 isEmpty Empty = True
 isEmpty _     = False
 
-addBid :: Ord a => (a,String) -> PriQue a -> PriQue a
+addBid :: Ord a => (a,String) -> PriQue (a,String) -> PriQue (a,String)
 addBid a Empty        = Node a Empty Empty
 addBid a (Node b l r) 
   | fst a > fst b = Node a r (addBid b l)
   | otherwise     = Node b r (addBid a l)
 
-addAsk :: Ord a => (a,String) -> PriQue a -> PriQue a
+addAsk :: Ord a => (a,String) -> PriQue (a,String) -> PriQue (a,String)
 addAsk a Empty        = Node a Empty Empty
 addAsk a (Node b l r) 
   | fst a < fst b = Node a r (addAsk b l)
   | otherwise     = Node b r (addAsk a l)
+
+decreaseKey = undefined
+
+increaseKey = undefined
 
 getMin :: Ord a => PriQue a -> a
 getMin Empty         = error "NoSuchElementException"
