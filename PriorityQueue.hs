@@ -1,3 +1,4 @@
+{-
 module PriorityQueue (
     PriQue,   -- type of priority queues
     emptyQue, -- PriQue a
@@ -59,9 +60,8 @@ removeMin :: Ord a => PriQue a -> PriQue a
 removeMin Empty = error "IllegalStateException"
 removeMin (Node _ l r )   = restore b bt l 
                             where (b,bt) = getMostRight r
+-}
 
-
-{-
 data Node a b = Node a [b] 
   deriving (Eq,Ord,Show)
 
@@ -78,23 +78,23 @@ isEmpty :: BinHeap a -> Bool
 isEmpty Empty = True
 isEmpty _     = False
 
--- | Returns the value of the order of a queue.
-order :: BinHeap a -> Int
-order (Heap [Node _ []]) = 0 
-order (Heap [Node _ ns]) = length ns
-order _                  = undefined
+-- | Returns the value of the order of a tree.
+order :: Node a [b] -> Int
+order (Node _ []) = 0
+order (Node _ hs) = length hs
 
--- | Merges two queues into one.
+-- | Merges two heaps into one.
 merge :: Ord a => (a -> a -> Bool) -> BinHeap (a,String) -> BinHeap (a,String)
            -> BinHeap (a,String)
 merge _ t1 Empty = t1
 merge _ Empty t2 = t2
-merge f t1@(Heap [Node a tt1]) t2@(Heap [Node b tt2])
-  | order t1 == order t2 = if f (fst a) (fst b)
-                           then Heap [Node a ([t2] ++ tt1)]
-                           else Heap [Node b ([t1] ++ tt2)]
-  | order t1 < order t2  = Heap [Node b ((merge f t1 (head tt2)):(tail tt2))]
-  | otherwise            = Heap [Node a ((merge f t2 (head tt1)):(tail tt1))]
+merge f h1@(Heap (n1@(Node a tt1):n1s)) h2@(Heap (n2@(Node b tt2):n2s))
+  | or [ order xs == order ys
+       | (Node _ xs)<-h1, (Node _ ys)<-h2 ]
+      = if f (fst a) (fst b)
+                           then merge f (Heap ((Node a (n2:tt1)):n1s)) (Heap n2s)
+                           else merge f (Heap ((Node b (n1:tt2)):n1s)) (Heap n2s)
+  | otherwise            = undefined
 
 -- | Adds an bid to a queue.
 addBid :: Ord a => (a,String) -> BinHeap (a,String) -> BinHeap (a,String)
@@ -105,4 +105,3 @@ addBid a t = merge (>) (Heap [Node a []]) t
 addAsk :: Ord a => (a,String) -> BinHeap (a,String) -> BinHeap (a,String)
 addAsk a Empty = Heap [Node a []] 
 addAsk a t = merge (<) (Heap [Node a []]) t
--}
