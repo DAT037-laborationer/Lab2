@@ -1,4 +1,3 @@
-{-
 module PriorityQueue (
     PriQue,   -- type of priority queues
     emptyQue, -- PriQue a
@@ -60,8 +59,8 @@ removeMin :: Ord a => PriQue a -> PriQue a
 removeMin Empty = error "IllegalStateException"
 removeMin (Node _ l r )   = restore b bt l 
                             where (b,bt) = getMostRight r
--}
 
+{-
 data Node a b = Node a [b] 
   deriving (Eq,Ord,Show)
 
@@ -86,8 +85,18 @@ order (Node _ hs) = length hs
 -- | Merges two heaps into one.
 merge :: Ord a => (a -> a -> Bool) -> BinHeap (a,String) -> BinHeap (a,String)
            -> BinHeap (a,String)
-merge _ t1 Empty = t1
-merge _ Empty t2 = t2
+merge f (t:ts) Empty
+  | or [ order ns
+       | (Node _ ns)<-(t:ts) ]
+      = merge f t ts 
+  | otherwise
+      = t:ts
+merge f Empty (t:ts)
+ | or [ order ns
+       | (Node _ ns)<-(t:ts) ]
+      = merge f t ts 
+  | otherwise
+      = t:ts
 merge f h1@(Heap (n1@(Node a tt1):n1s)) h2@(Heap (n2@(Node b tt2):n2s))
   | or [ order xs == order ys
        | (Node _ xs)<-h1, (Node _ ys)<-h2 ]
@@ -105,3 +114,4 @@ addBid a t = merge (>) (Heap [Node a []]) t
 addAsk :: Ord a => (a,String) -> BinHeap (a,String) -> BinHeap (a,String)
 addAsk a Empty = Heap [Node a []] 
 addAsk a t = merge (<) (Heap [Node a []]) t
+-}
