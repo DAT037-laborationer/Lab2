@@ -61,12 +61,40 @@ removeMin (Node _ l r )   = restore b bt l
                             where (b,bt) = getMostRight r
 
 {-
-data Node a b = Node a [b] 
-  deriving (Eq,Ord,Show)
+-- | Data structure for a binomial tree, which has a root value and
+-- | a list of subtrees.
+data Node a = Node a [BinHeap a] 
+  deriving (Show)
 
-data BinHeap a = Empty |
-                 Heap [Node a (BinHeap a)]
-  deriving (Eq,Ord,Show)
+-- | Data structure for a binomial heap, which is a collection
+-- | of binomial trees. 
+data BinHeap a = Empty | Heap [Node a]
+  deriving (Show)
+  
+-- | Instance for the equality of two nodes, which is determined
+-- | by their key values.
+instance Eq a => Eq (Node a) where
+  (Node a1 _) == (Node a2 _) = a1 == a2
+
+-- | Instance for the ordering of two nodes, which is determined
+-- | by their orders.
+instance Eq a => Ord (Node a) where
+  compare n1 n2 = compare (order n1) (order n2)
+  
+-- | Instance for adding two heaps together.
+instance (Ord a, Eq a) => Num (BinHeap a) where
+  (+) Empty Empty           = Empty
+  (+) h Empty               = h
+  (+) Empty h               = h 
+  (+) (Heap n1s) (Heap n2s) = Heap (n1s ++ n2s)
+  (*) _ _                   = undefined
+  abs _                     = undefined
+  signum _                  = undefined
+  fromInteger _             = undefined 
+  
+type Trade = (Int,String)
+
+-------------------------------------------------------------------------------
 
 -- | Returns an empty queue.
 emptyQueue :: BinHeap a
@@ -78,27 +106,55 @@ isEmpty Empty = True
 isEmpty _     = False
 
 -- | Returns the value of the order of a tree.
-order :: Node a b -> Int
-order (Node _ []) = 0
+order :: Node a -> Int
+order (Node _ [Empty]) = 0
 order (Node _ hs) = length hs
 
+-- | Sorts a heap by increasing order.
+sortHeap :: (Ord a, Eq a) => BinHeap a -> BinHeap a
+sortHeap Empty         = Empty
+sortHeap (Heap [])     = Empty
+sortHeap (Heap (n:[])) = Heap [n]
+sortHeap (Heap (n:ns)) 
+  | n < head ns = Heap ([n] ++ extract (sortHeap (Heap ns)))
+  | otherwise   = Heap ([head ns] ++ extract (sortHeap (Heap (n:(tail ns)))))
+
 -- | Merges two heaps into one.
-merge :: Ord a => (a -> a -> Bool) -> BinHeap (a,String) -> BinHeap (a,String)
-           -> BinHeap (a,String)
+merge :: (Int -> Int -> Bool) -> BinHeap Trade -> BinHeap Trade
+           -> BinHeap Trade
 merge _ Empty Empty = Empty
-merge f ts Empty    = merge f Empty ts
-merge f Empty h@(Heap (n:ns))
-  | duplicates [ order x | x<-ns ] = merge f (Heap [n]) (Heap ns) 
-  | otherwise                      = h
-merge f h1@(Heap (n1:n1s)) h2@(Heap (n2:n2s))
-  | order n1 == order n2
-      = if f (key n1) (key n2)
-        then undefined
-        else undefined
-  | order n1 < order n2
-      = Heap ([n1] ++ extract (merge f (Heap n1s) h2))
+merge f h Empty = merge f Empty h
+merge f Empty h
+  | duplicates [ order x
+               | x<-tailN h ]
+      = merge f (Heap [headN h]) (Heap (tailN h))
   | otherwise
-      = Heap ([n2] ++ extract (merge f (Heap n2s) h1))
+      = h
+merge f h1 h2
+  | headN h1 == headN h2
+      = Heap [combine f (headN h1) (headN h2)]
+          + merge f (Heap (tailN h1)) (Heap (tailN h2))
+  | headN h1 < headN h2
+      = Heap [headN h1] + merge f (Heap (tailN h1)) h2
+  | otherwise
+      = Heap [headN h2] + merge f (Heap (tailN h2)) h1
+
+-- | Returns the head and tail, respectively, of a Heap's nodes.
+headN :: BinHeap Trade -> Node Trade
+tailN :: BinHeap Trade -> [Node Trade]
+headN = head . extract
+tailN = tail . extract
+  
+
+-- | Merges two nodes into one.
+combine :: (Int -> Int -> Bool) -> Node Trade
+             -> Node Trade
+             -> Node Trade
+combine f n1 n2
+  | f (key n1) (key n2) || key n1 == key n2
+      = Node (element n1) ([Heap [n2]] ++ (children n1))
+  | otherwise 
+      = combine f n2 n1
 
 -- | Checks if there are any duplicates in a list of ordered Ints.
 duplicates :: [Int] -> Bool
@@ -107,24 +163,29 @@ duplicates (i:[]) = False
 duplicates (i:is) = i == head is || duplicates (is)
 
 -- | Extracts the nodes of a tree.
-extract :: Ord a => BinHeap a -> [Node a (BinHeap a)]
+extract :: Ord a => BinHeap a -> [Node a]
 extract (Heap ns) = ns
 
 -- | Returns the key (priority) of an element.
-key :: (Ord a, Ord b) => Node (a,String) b -> a
+key :: Node Trade -> Int
 key (Node a _) = fst a
 
+-- | Returns the element of a node.
+element :: Node Trade -> Trade
+element (Node a _) = a
+
 -- | Returns the children of a node.
-children :: Ord a => Node a (BinHeap a) -> [BinHeap a] 
-children (Node _ h) = h
+children :: Ord a => Node a -> [BinHeap a] 
+children (Node _ [Empty]) = []
+children (Node _ h)       = h
 
 -- | Adds an bid to a queue.
-addBid :: Ord a => (a,String) -> BinHeap (a,String) -> BinHeap (a,String)
-addBid a Empty = Heap [Node a []] 
-addBid a t = merge (>) (Heap [Node a []]) t
+addBid :: Trade -> BinHeap Trade -> BinHeap Trade
+addBid a Empty = Heap [Node a [Empty]] 
+addBid a t = merge (>) (addBid a Empty) t
 
 -- | Adds an ask to a queue.
-addAsk :: Ord a => (a,String) -> BinHeap (a,String) -> BinHeap (a,String)
-addAsk a Empty = Heap [Node a []] 
-addAsk a t = merge (<) (Heap [Node a []]) t
+addAsk :: Trade -> BinHeap Trade -> BinHeap Trade
+addAsk a Empty = Heap [Node a [Empty]] 
+addAsk a t = merge (<) (addAsk a Empty) t
 -}
