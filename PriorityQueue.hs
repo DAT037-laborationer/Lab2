@@ -1,4 +1,3 @@
-{-
 module PriorityQueue (
     PriQue,   -- type of priority queues
     emptyQue, -- PriQue a
@@ -60,8 +59,8 @@ removeMin :: Ord a => PriQue a -> PriQue a
 removeMin Empty = error "IllegalStateException"
 removeMin (Node _ l r )   = restore b bt l 
                             where (b,bt) = getMostRight r
--}
 
+{-
 data Node a b = Node a [b] 
   deriving (Eq,Ord,Show)
 
@@ -128,3 +127,4 @@ addBid a t = merge (>) (Heap [Node a []]) t
 addAsk :: Ord a => (a,String) -> BinHeap (a,String) -> BinHeap (a,String)
 addAsk a Empty = Heap [Node a []] 
 addAsk a t = merge (<) (Heap [Node a []]) t
+-}
