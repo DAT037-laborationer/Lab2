@@ -78,32 +78,44 @@ isEmpty Empty = True
 isEmpty _     = False
 
 -- | Returns the value of the order of a tree.
-order :: Node a [b] -> Int
+order :: Node a b -> Int
 order (Node _ []) = 0
 order (Node _ hs) = length hs
 
 -- | Merges two heaps into one.
 merge :: Ord a => (a -> a -> Bool) -> BinHeap (a,String) -> BinHeap (a,String)
            -> BinHeap (a,String)
-merge f (t:ts) Empty
-  | or [ order ns
-       | (Node _ ns)<-(t:ts) ]
-      = merge f t ts 
+merge _ Empty Empty = Empty
+merge f ts Empty    = merge f Empty ts
+merge f Empty h@(Heap (n:ns))
+  | duplicates [ order x | x<-ns ] = merge f (Heap [n]) (Heap ns) 
+  | otherwise                      = h
+merge f h1@(Heap (n1:n1s)) h2@(Heap (n2:n2s))
+  | order n1 == order n2
+      = if f (key n1) (key n2)
+        then undefined
+        else undefined
+  | order n1 < order n2
+      = Heap ([n1] ++ extract (merge f (Heap n1s) h2))
   | otherwise
-      = t:ts
-merge f Empty (t:ts)
- | or [ order ns
-       | (Node _ ns)<-(t:ts) ]
-      = merge f t ts 
-  | otherwise
-      = t:ts
-merge f h1@(Heap (n1@(Node a tt1):n1s)) h2@(Heap (n2@(Node b tt2):n2s))
-  | or [ order xs == order ys
-       | (Node _ xs)<-h1, (Node _ ys)<-h2 ]
-      = if f (fst a) (fst b)
-                           then merge f (Heap ((Node a (n2:tt1)):n1s)) (Heap n2s)
-                           else merge f (Heap ((Node b (n1:tt2)):n1s)) (Heap n2s)
-  | otherwise            = undefined
+      = Heap ([n2] ++ extract (merge f (Heap n2s) h1))
+
+-- | Checks if there are any duplicates in a list of ordered Ints.
+duplicates :: [Int] -> Bool
+duplicates []     = False
+duplicates (i:is) = i == head is || duplicates (is)
+
+-- | Extracts the nodes of a tree.
+extract :: Ord a => BinHeap a -> [Node a (BinHeap a)]
+extract (Heap ns) = ns
+
+-- | Returns the key (priority) of an element.
+key :: (Ord a, Ord b) => Node (a,String) b -> a
+key (Node a _) = fst a
+
+-- | Returns the children of a node.
+children :: Ord a => Node a (BinHeap a) -> [BinHeap a] 
+children (Node _ h) = h
 
 -- | Adds an bid to a queue.
 addBid :: Ord a => (a,String) -> BinHeap (a,String) -> BinHeap (a,String)
