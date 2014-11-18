@@ -1,3 +1,4 @@
+{-
 module PriorityQueue (
     PriQue,   -- type of priority queues
     emptyQue, -- PriQue a
@@ -59,8 +60,8 @@ removeMin :: Ord a => PriQue a -> PriQue a
 removeMin Empty = error "IllegalStateException"
 removeMin (Node _ l r )   = restore b bt l 
                             where (b,bt) = getMostRight r
+-}
 
-{-
 -- | Data structure for a binomial tree, which has a root value and
 -- | a list of subtrees.
 data Node a = Node a [BinHeap a] 
@@ -72,9 +73,9 @@ data BinHeap a = Empty | Heap [Node a]
   deriving (Show)
   
 -- | Instance for the equality of two nodes, which is determined
--- | by their key values.
+-- | by their orders.
 instance Eq a => Eq (Node a) where
-  (Node a1 _) == (Node a2 _) = a1 == a2
+  n1 == n2 = order n1 == order n2
 
 -- | Instance for the ordering of two nodes, which is determined
 -- | by their orders.
@@ -122,18 +123,21 @@ sortHeap (Heap (n:ns))
 -- | Merges two heaps into one.
 merge :: (Int -> Int -> Bool) -> BinHeap Trade -> BinHeap Trade
            -> BinHeap Trade
-merge _ Empty Empty = Empty
-merge f h Empty = merge f Empty h
-merge f Empty h
-  | duplicates [ order x
-               | x<-tailN h ]
+merge f Empty Empty = merge f (Heap []) (Heap [])
+merge f Empty h     = merge f h (Heap [])
+merge f h Empty     = merge f h (Heap [])
+merge _ (Heap []) (Heap [])
+                    = Empty
+merge f (Heap []) h = merge f h (Heap [])
+merge f h (Heap []) 
+  | duplicates [ order x | x <- extract h ]
       = merge f (Heap [headN h]) (Heap (tailN h))
   | otherwise
       = h
 merge f h1 h2
   | headN h1 == headN h2
-      = Heap [combine f (headN h1) (headN h2)]
-          + merge f (Heap (tailN h1)) (Heap (tailN h2))
+      = merge f (Heap [combine f (headN h1) (headN h2)])
+          (Heap (tailN h1) + Heap (tailN h2))
   | headN h1 < headN h2
       = Heap [headN h1] + merge f (Heap (tailN h1)) h2
   | otherwise
@@ -144,7 +148,6 @@ headN :: BinHeap Trade -> Node Trade
 tailN :: BinHeap Trade -> [Node Trade]
 headN = head . extract
 tailN = tail . extract
-  
 
 -- | Merges two nodes into one.
 combine :: (Int -> Int -> Bool) -> Node Trade
@@ -176,16 +179,40 @@ element (Node a _) = a
 
 -- | Returns the children of a node.
 children :: Ord a => Node a -> [BinHeap a] 
-children (Node _ [Empty]) = []
-children (Node _ h)       = h
+children (Node _ []) = []
+children (Node _ h)  = h
 
 -- | Adds an bid to a queue.
 addBid :: Trade -> BinHeap Trade -> BinHeap Trade
-addBid a Empty = Heap [Node a [Empty]] 
+addBid a Empty = Heap [Node a []] 
 addBid a t = merge (>) (addBid a Empty) t
 
 -- | Adds an ask to a queue.
 addAsk :: Trade -> BinHeap Trade -> BinHeap Trade
-addAsk a Empty = Heap [Node a [Empty]] 
+addAsk a Empty = Heap [Node a []] 
 addAsk a t = merge (<) (addAsk a Empty) t
--}
+
+-- | Deletes the most prioritized element in a heap.
+deletePrio :: (Int -> Int -> Bool) -> BinHeap Trade -> BinHeap Trade
+deletePrio f h = merge f (addHeaps $ children $ headN $ fst $ findPrio f h) (snd $ findPrio f h)
+
+-- | Adds a list of heaps into a single heap.
+addHeaps :: [BinHeap Trade] -> BinHeap Trade
+addHeaps []     = Empty
+addHeaps (h:hs) = h + addHeaps hs 
+
+-- | Finds the minimum element in a heap.
+findPrio :: (Int -> Int -> Bool) -> BinHeap Trade -> (BinHeap Trade, BinHeap Trade)
+findPrio f Empty           = (Empty, Empty)
+findPrio f (Heap [])       = (Empty, Empty)
+findPrio f (Heap (n : [])) = (Heap [n], Empty)
+findPrio f (Heap (n1 : (n2 : [])))
+  | f (key n1) (key n2)    = (Heap [n1], Heap [n2])
+  | otherwise              = (Heap [n2], Heap [n1]) 
+findPrio f (Heap (n1 : (n2 : ns)))
+  | f (key n1) (key n2)    = (fst (findPrio f (Heap([n1] ++ ns))),
+                              Heap [n2] + snd (findPrio f (Heap([n1] ++ ns))))
+  | otherwise              = (fst (findPrio f (Heap([n2] ++ ns))),
+                              Heap [n1] + snd (findPrio f (Heap([n2] ++ ns))))
+                
+              
