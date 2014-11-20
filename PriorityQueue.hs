@@ -201,8 +201,9 @@ addHeaps :: [BinHeap Trade] -> BinHeap Trade
 addHeaps []     = Empty
 addHeaps (h:hs) = h + addHeaps hs 
 
--- | Finds the minimum element in a heap.
-findPrio :: (Int -> Int -> Bool) -> BinHeap Trade -> (BinHeap Trade, BinHeap Trade)
+-- | Finds the most prioritized element in a heap.
+findPrio :: (Int -> Int -> Bool) -> BinHeap Trade
+              -> (BinHeap Trade, BinHeap Trade)
 findPrio f Empty           = (Empty, Empty)
 findPrio f (Heap [])       = (Empty, Empty)
 findPrio f (Heap (n : [])) = (Heap [n], Empty)
@@ -214,5 +215,31 @@ findPrio f (Heap (n1 : (n2 : ns)))
                               Heap [n2] + snd (findPrio f (Heap([n1] ++ ns))))
   | otherwise              = (fst (findPrio f (Heap([n2] ++ ns))),
                               Heap [n1] + snd (findPrio f (Heap([n2] ++ ns))))
-                
-              
+
+-- | Updates an existing element in a heap with a new key value.
+update :: (Int -> Int -> Bool) -> BinHeap Trade -> Trade -> Trade
+            -> BinHeap Trade
+update _ (Heap []) _ _    = Empty
+update f h old@(kOld,nOld) new@(kNew,nNew)
+  | f (kNew) (kOld)       = undefined
+  | otherwise             = case kOld == key (headN h) of
+      True -> bubbleDown f (Heap [change (headN h)]) + Heap (tailN h)
+      _    -> Heap [headN h] + update f (Heap (tailN h)) old new              
+  where change (Node _ hs) = Node new hs            
+
+-- | Bubbles down the top element in a binomial tree.
+bubbleDown :: (Int -> Int -> Bool) -> BinHeap Trade -> BinHeap Trade
+bubbleDown _ (Heap []) = Heap []
+bubbleDown _ h@(Heap [Node _ []])
+                       = h
+bubbleDown f h@(Heap [n@(Node a hs)])
+  | f (key n) (key n') = h
+  | otherwise          = bubbleDown f (Heap [Node a gs])
+  where n'@(Node _ gs) = nodePrio f hs
+
+-- | Finds the most prioritized top node in a list of heaps.
+nodePrio :: (Int -> Int -> Bool) -> [BinHeap Trade] -> Node Trade
+nodePrio f hs = case f of
+  (<) -> minimum [ headN h | h <- hs] -- FEL!!!
+  (>) -> maximum [ headN h | h <- hs] -- FEL!!!
+  _   -> error "Can only pass (<) and (>) functions."
