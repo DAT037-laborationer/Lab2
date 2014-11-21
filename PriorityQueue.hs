@@ -233,24 +233,25 @@ update :: (Int -> Int -> Bool) -> BinHeap Trade -> Trade
             -> BinHeap Trade
 update f b t
   | b == Empty || b == Heap [] = emptyQueue
-  | not (isInTree t b)         = Heap [headN b] + update f ht t
+  | not (isInTree t bh) = bh + update f bt t
   | otherwise                  = case not (f (fst t) ((key . headN) b)) of
       {- The new element would not violate the properties of the heap, if
          it later would be in a subtree of the top node.                   -}
       True  -> case snd t == (name . headN) b of
         {- The top node contains the trader, so we swap the old key value
            with the new.                                                   -}
-        True  -> bubbleDown f (Heap [ Node t c ]) + ht
+        True  -> bubbleDown f (Heap [ Node t c ]) + bt
         
         {- The top node does not contain the trader, so we continue the
            search through its children.                                    -}
-        False -> Heap [ Node e [ update f x t | x <- c ] ] + ht
+        False -> Heap [ Node e [ update f x t | x <- c ] ] + bt
       {- The new element violates the properties of the heap if it is not
          replaced here, so we find the old element while bubbling down.    -}
       False -> findAndBubbleDown f b t
   where c  = (children . headN) b
         e  = (element . headN) b
-        ht = (Heap . tailN) b
+        bt = (Heap . tailN) b
+        bh = Heap [headN b]
   
 -- | Checks whether a Trade is in the BinHeap tree or not. 
 isInTree :: Trade -> BinHeap Trade -> Bool
@@ -273,21 +274,36 @@ update f h old new
 
 -- | Bubbles down the top element in a binomial tree.
 bubbleDown :: (Int -> Int -> Bool) -> BinHeap Trade -> BinHeap Trade
-bubbleDown _ (Heap []) = Heap []
-bubbleDown _ h@(Heap [Node _ []])
-                       = h
-bubbleDown f h@(Heap [n@(Node a hs)])
-  | f (key n) (key n') = h
-  | otherwise          = bubbleDown f (Heap [Node a gs])
-  where n'@(Node _ gs) = nodePrio f hs
-  
+bubbleDown f b
+  | (order . headN) b == 0 = b
+  | f k k'                 = b
+  | otherwise              = Heap [ Node e' [ bubbleDown f x      -- Behöver fixas 
+                                            | x <- c ] ]
+  where c  = (children . headN) b
+        e  = (element . headN) b
+        e' = element (nodePrio f c)
+        k  = (key . headN) b
+        k' = key (nodePrio f c)
+        
 -- | Finds an element in a tree and replaces it, while bubbling down.
 findAndBubbleDown :: (Int -> Int -> Bool) -> BinHeap Trade -> Trade
                        -> BinHeap Trade  
-findAndBubbleDown f b t = undefined
+findAndBubbleDown f b t = f' f b t t
+  where f' f b t r 
+          | b == Empty || b == Heap [] = emptyQueue
+          | snd t == (name . headN) b  = bubbleDown f (Heap [Node t c] + bt)
+          | not (isInTree t bh)        = bh + f' f bt t r
+          | otherwise                  = case f (fst r) ((key . headN) b) of
+              True  -> Heap [ Node r [ f' f x t e | x <- c ] ]
+              False -> Heap [ Node e [ f' f x t r | x <- c ] ]
+          where hc = if c /= [] then head c else Empty
+                c  = (children . headN) b
+                e  = (element . headN) b
+                bt = (Heap . tailN) b
+                bh = Heap [headN b]
 
 -- | Finds the most prioritized top node in a list of heaps.
 nodePrio :: (Int -> Int -> Bool) -> [BinHeap Trade] -> Node Trade
-nodePrio f hs = case f 1 2 of
-  True -> minimum [ headN h | h <- hs] -- FEL!!!
-  _    -> maximum [ headN h | h <- hs] -- FEL!!!
+nodePrio f bs = case f 1 2 of
+  True -> minimum [ headN b | b <- bs ]
+  _    -> maximum [ headN b | b <- bs ]
