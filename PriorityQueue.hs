@@ -277,13 +277,15 @@ bubbleDown :: (Int -> Int -> Bool) -> BinHeap Trade -> BinHeap Trade
 bubbleDown f b
   | (order . headN) b == 0 = b
   | f k k'                 = b
-  | otherwise              = Heap [ Node e' [ bubbleDown f x      -- Behöver fixas 
-                                            | x <- c ] ]
-  where c  = (children . headN) b
-        e  = (element . headN) b
-        e' = element (nodePrio f c)
-        k  = (key . headN) b
-        k' = key (nodePrio f c)
+  | otherwise
+      = Heap [ Node e' (bf ++ [ bubbleDown f (Heap [Node e c']) ] ++ bb) ] 
+  where (bf,b',bb) = nodePrio f c
+        c          = (children . headN) b
+        c'         = (children . headN) b'
+        e          = (element . headN) b
+        e'         = (element . headN) b'
+        k          = (key . headN) b
+        k'         = (key . headN) b'
         
 -- | Finds an element in a tree and replaces it, while bubbling down.
 findAndBubbleDown :: (Int -> Int -> Bool) -> BinHeap Trade -> Trade
@@ -302,8 +304,19 @@ findAndBubbleDown f b t = f' f b t t
                 bt = (Heap . tailN) b
                 bh = Heap [headN b]
 
--- | Finds the most prioritized top node in a list of heaps.
-nodePrio :: (Int -> Int -> Bool) -> [BinHeap Trade] -> Node Trade
-nodePrio f bs = case f 1 2 of
-  True -> minimum [ headN b | b <- bs ]
-  _    -> maximum [ headN b | b <- bs ]
+-- | Finds the most prioritized top node in a list of heaps, and returns a
+-- | tuple with a list of the nodes in front of the prioritized node, the
+-- | most prioritized node and a list of the nodes behind the most
+-- | prioritized node.
+nodePrio :: (Int -> Int -> Bool) -> [BinHeap Trade]
+              -> ([BinHeap Trade], BinHeap Trade, [BinHeap Trade])
+nodePrio _ []     = ([], Empty, [])
+nodePrio _ (b:[]) = ([], b, [])
+nodePrio f x@(b:bs) 
+  | (key . headN) b == np = ([], b, bs)
+  | otherwise             = ([b] ++ bf, b', bb)
+  where np         = foldl f' k1 [ (key . headN) x | x <- bs]
+        f' a b     = if f a b then a else b 
+        k1         = (key . headN) b
+        k2         = (key . headN . head) bs
+        (bf,b',bb) = nodePrio f bs
