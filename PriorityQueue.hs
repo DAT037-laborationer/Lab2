@@ -62,6 +62,8 @@ removeMin (Node _ l r )   = restore b bt l
                             where (b,bt) = getMostRight r
 -}
 
+module PriorityQueue where
+
 -- | Data structure for a binomial tree, which has a root value and
 -- | a list of subtrees.
 data Node a = Null | Node a [BinHeap a] 
@@ -93,7 +95,7 @@ instance (Ord a, Eq a) => Num (BinHeap a) where
   signum _                  = undefined
   fromInteger _             = undefined 
   
-type Trade = (Int,String)
+type Trade = (Integer,String)
 
 -------------------------------------------------------------------------------
 
@@ -107,9 +109,9 @@ isEmpty Empty = True
 isEmpty _     = False
 
 -- | Returns the value of the order of a tree.
-order :: Node a -> Int
+order :: Node a -> Integer
 order (Node _ [Empty]) = 0
-order (Node _ hs) = length hs
+order (Node _ hs) = (toInteger . length) hs
 
 -- | Sorts a heap by increasing order.
 sortHeap :: (Ord a, Eq a) => BinHeap a -> BinHeap a
@@ -121,7 +123,7 @@ sortHeap (Heap (n:ns))
   | otherwise   = Heap ([head ns] ++ extract (sortHeap (Heap (n:(tail ns)))))
 
 -- | Merges two heaps into one.
-merge :: (Int -> Int -> Bool) -> BinHeap Trade -> BinHeap Trade
+merge :: (Integer -> Integer -> Bool) -> BinHeap Trade -> BinHeap Trade
            -> BinHeap Trade
 merge f Empty Empty = merge f (Heap []) (Heap [])
 merge f Empty h     = merge f h (Heap [])
@@ -152,7 +154,7 @@ headN b
 tailN   = tail . extract
 
 -- | Merges two nodes into one.
-combine :: (Int -> Int -> Bool) -> Node Trade
+combine :: (Integer -> Integer -> Bool) -> Node Trade
              -> Node Trade
              -> Node Trade
 combine f n1 n2
@@ -161,8 +163,8 @@ combine f n1 n2
   | otherwise 
       = combine f n2 n1
 
--- | Checks if there are any duplicates in a list of ordered Ints.
-duplicates :: [Int] -> Bool
+-- | Checks if there are any duplicates in a list of ordered Integers.
+duplicates :: [Integer] -> Bool
 duplicates []     = False
 duplicates (i:[]) = False
 duplicates (i:is) = i == head is || duplicates (is)
@@ -179,7 +181,7 @@ element :: Node Trade -> Trade
 element (Node a _) = a
 
 -- | Returns the key (priority) of the Trade element of a node.
-key :: Node Trade -> Int
+key :: Node Trade -> Integer
 key = fst . element 
 
 -- | Returns the string from the Trade element of a node.
@@ -205,16 +207,17 @@ addAsk a Empty = Heap [Node a []]
 addAsk a t = merge (<) (addAsk a Empty) t
 
 -- | Deletes the most prioritized element in a heap.
-deletePrio :: (Int -> Int -> Bool) -> BinHeap Trade -> BinHeap Trade
+deletePrio :: (Integer -> Integer -> Bool) -> BinHeap Trade -> BinHeap Trade
 deletePrio f h = merge f (addHeaps $ children $ headN $ fst $ findPrio f h) (snd $ findPrio f h)
 
 -- | Adds a list of heaps into a single heap.
 addHeaps :: [BinHeap Trade] -> BinHeap Trade
 addHeaps []     = Empty
-addHeaps (h:hs) = h + addHeaps hs 
+addHeaps (h:hs) = addHeaps hs + h 
 
--- | Finds the most prioritized element in a heap.
-findPrio :: (Int -> Int -> Bool) -> BinHeap Trade
+-- | Finds the most prioritized element in a heap and returns a tuple with 
+-- | the tree that contains the found element and the rest of the trees.
+findPrio :: (Integer -> Integer -> Bool) -> BinHeap Trade
               -> (BinHeap Trade, BinHeap Trade)
 findPrio f Empty           = (Empty, Empty)
 findPrio f (Heap [])       = (Empty, Empty)
@@ -228,12 +231,16 @@ findPrio f (Heap (n1 : (n2 : ns)))
   | otherwise              = (fst (findPrio f (Heap([n2] ++ ns))),
                               Heap [n1] + snd (findPrio f (Heap([n2] ++ ns))))
 
+-- | Returns the top node element
+getPrio :: (Integer -> Integer -> Bool) -> BinHeap Trade -> Trade
+getPrio f b = (element . headN . fst . findPrio f) b
+
 -- | Updates an existing element in a heap with a new key value.
-update :: (Int -> Int -> Bool) -> BinHeap Trade -> Trade
+update :: (Integer -> Integer -> Bool) -> Trade -> BinHeap Trade
             -> BinHeap Trade
-update f b t
+update f t b
   | b == Empty || b == Heap [] = emptyQueue
-  | not (isInTree t bh) = bh + update f bt t
+  | not (isInTree t bh) = bh + update f t bt
   | otherwise                  = case not (f (fst t) ((key . headN) b)) of
       {- The new element would not violate the properties of the heap, if
          it later would be in a subtree of the top node.                   -}
@@ -244,7 +251,7 @@ update f b t
         
         {- The top node does not contain the trader, so we continue the
            search through its children.                                    -}
-        False -> Heap [ Node e [ update f x t | x <- c ] ] + bt
+        False -> Heap [ Node e [ update f t x | x <- c ] ] + bt
       {- The new element violates the properties of the heap if it is not
          replaced here, so we find the old element while bubbling down.    -}
       False -> findAndBubbleDown f b t
@@ -273,7 +280,7 @@ update f h old new
 -}
 
 -- | Bubbles down the top element in a binomial tree.
-bubbleDown :: (Int -> Int -> Bool) -> BinHeap Trade -> BinHeap Trade
+bubbleDown :: (Integer -> Integer -> Bool) -> BinHeap Trade -> BinHeap Trade
 bubbleDown f b
   | (order . headN) b == 0 = b
   | f k k'                 = b
@@ -288,7 +295,7 @@ bubbleDown f b
         k'         = (key . headN) b'
         
 -- | Finds an element in a tree and replaces it, while bubbling down.
-findAndBubbleDown :: (Int -> Int -> Bool) -> BinHeap Trade -> Trade
+findAndBubbleDown :: (Integer -> Integer -> Bool) -> BinHeap Trade -> Trade
                        -> BinHeap Trade  
 findAndBubbleDown f b t = f' f b t t
   where f' f b t r 
@@ -308,7 +315,7 @@ findAndBubbleDown f b t = f' f b t t
 -- | tuple with a list of the nodes in front of the prioritized node, the
 -- | most prioritized node and a list of the nodes behind the most
 -- | prioritized node.
-nodePrio :: (Int -> Int -> Bool) -> [BinHeap Trade]
+nodePrio :: (Integer -> Integer -> Bool) -> [BinHeap Trade]
               -> ([BinHeap Trade], BinHeap Trade, [BinHeap Trade])
 nodePrio _ []     = ([], Empty, [])
 nodePrio _ (b:[]) = ([], b, [])
