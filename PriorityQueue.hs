@@ -204,11 +204,11 @@ addBid a t = merge (>) (addBid a Empty) t
 -- | Adds an ask to a queue.
 addAsk :: Trade -> BinHeap Trade -> BinHeap Trade
 addAsk a Empty = Heap [Node a []] 
-addAsk a t = merge (<) (addAsk a Empty) t
+addAsk a b = merge (<) (addAsk a Empty) b
 
 -- | Deletes the most prioritized element in a heap.
 deletePrio :: (Integer -> Integer -> Bool) -> BinHeap Trade -> BinHeap Trade
-deletePrio f h = merge f (addHeaps $ children $ headN $ fst $ findPrio f h) (snd $ findPrio f h)
+deletePrio f b = merge f (addHeaps $ children $ headN $ fst $ findPrio f b) (snd $ findPrio f b)
 
 -- | Adds a list of heaps into a single heap.
 addHeaps :: [BinHeap Trade] -> BinHeap Trade
@@ -222,10 +222,10 @@ findPrio :: (Integer -> Integer -> Bool) -> BinHeap Trade
 findPrio f Empty           = (Empty, Empty)
 findPrio f (Heap [])       = (Empty, Empty)
 findPrio f (Heap (n : [])) = (Heap [n], Empty)
-findPrio f (Heap (n1 : (n2 : [])))
+findPrio f (Heap (n1 : n2 : []))
   | f (key n1) (key n2)    = (Heap [n1], Heap [n2])
   | otherwise              = (Heap [n2], Heap [n1]) 
-findPrio f (Heap (n1 : (n2 : ns)))
+findPrio f (Heap (n1 : n2 : ns))
   | f (key n1) (key n2)    = (fst (findPrio f (Heap([n1] ++ ns))),
                               Heap [n2] + snd (findPrio f (Heap([n1] ++ ns))))
   | otherwise              = (fst (findPrio f (Heap([n2] ++ ns))),
@@ -234,6 +234,14 @@ findPrio f (Heap (n1 : (n2 : ns)))
 -- | Returns the top node element
 getPrio :: (Integer -> Integer -> Bool) -> BinHeap Trade -> Trade
 getPrio f b = (element . headN . fst . findPrio f) b
+
+-- | Returns a list of all the elements in a heap arranged from highest
+-- | priority to lowest.
+listElements :: (Integer -> Integer -> Bool) -> BinHeap Trade -> [Trade]
+listElements f b
+  | b == Heap [] || b == Empty = []
+  | otherwise
+      = [getPrio f b] ++ (listElements f . deletePrio f) b
 
 -- | Updates an existing element in a heap with a new key value.
 update :: (Integer -> Integer -> Bool) -> Trade -> BinHeap Trade
@@ -267,17 +275,6 @@ isInTree t b
   | snd t == name (headN b)    = True
   | otherwise                  = or [ isInTree t x
                                     | x <- (children . headN) b ] 
-            
-{-
-update _ Empty _ _        = Empty
-update _ (Heap []) _ _    = Empty
-update f h old new
-  | f (fst new) (fst old)       = undefined
-  | otherwise             = case snd old == name (headN h) of
-      True -> bubbleDown f (Heap [change (headN h)]) + Heap (tailN h)
-      _    -> Heap [headN h] + update f (Heap (tailN h)) old new              
-  where change (Node _ hs) = Node new hs            
--}
 
 -- | Bubbles down the top element in a binomial tree.
 bubbleDown :: (Integer -> Integer -> Bool) -> BinHeap Trade -> BinHeap Trade

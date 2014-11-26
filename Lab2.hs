@@ -9,11 +9,6 @@ data Trader = Trader String TradeType Integer Integer
 data TradeType = Ask | Bid
   deriving (Eq)
 
---history :: [String] -> String -> String -> Integer -> [String]
---history historyBook buyer seller price
---  = historyBook ++ (buyer ++ " buys from " ++ seller ++ " for "
---                    ++ show price ++ "kr.") 
-
 -- | Parses a bid. Incorrectly formatted bids are returned verbatim
 -- (tagged with 'Left').
 
@@ -57,19 +52,28 @@ main = do
       [ "Usage: ./Lab2 [<file>]"
       , "If no file is given, then input is read from standard input."
       ]
-  where
-  process h = trade =<< parseBids =<< hGetContents h
+  where process h = trade =<< parseBids =<< hGetContents h
 
 -- | ...
 
 trade :: [Trader] -> IO ()
-trade bids = do
-  let (askT,bidT) = transactions bids
-  putStr $ deals askT bidT
+trade bids = let (askT,bidT) = transactions bids
+             in putStr $  deals askT bidT
   
 deals :: BinHeap Trade -> BinHeap Trade -> String
-deals b1 b2 = "Orderbok:"
-
+deals b1 b2 
+  | ask > bid = "\nOrderbok:\n" ++
+                "Säljare: " ++ f' (listElements (<) b1) ++
+                "Köpare: " ++ f' (listElements (>) b2)
+  | otherwise = buyer ++ " köper från " ++ seller ++ " för " ++ show ask
+                  ++ " kr.\n"
+                  ++ deals (deletePrio (<) b1) (deletePrio (>) b2)
+  where (ask,seller)  = getPrio (<) b1
+        (bid,buyer)   = getPrio (>) b2
+        f' []         = "\n"
+        f' ((k,n):[]) = n ++ " " ++ show k ++ "\n"
+        f' ((k,n):es) = n ++ " " ++ show k ++ ", " ++ f' es
+        
 transactions :: [Trader] -> (BinHeap Trade, BinHeap Trade)
 transactions bids = t' (reverse bids)
   where
