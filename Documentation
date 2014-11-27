@@ -1,0 +1,6 @@
+Complexity
+---------------------------------------
+The time complexity for merge, which is used in addAsk, addBid and deletePrio, is O(log(n)), since in a binomial heap of size n, the number of trees in the heap is in the worst case log(n). merge compare each tree in the two heaps that are being merged to see if they can be merged, hence the O(log(n)) complexity.
+
+The update function has a worst case complexity of O(n), since we are traversing the whole heap in order to find the element.
+

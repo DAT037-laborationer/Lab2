@@ -3,15 +3,13 @@ import System.Environment
 import System.IO
 import PriorityQueue
 
--- | Bids.
-
+-- | Datatype for a trader.
 data Trader = Trader String TradeType Integer Integer
 data TradeType = Ask | Bid
   deriving (Eq)
 
 -- | Parses a bid. Incorrectly formatted bids are returned verbatim
--- (tagged with 'Left').
-
+-- | (tagged with 'Left').
 parseBid :: String -> Either String Trader
 parseBid s = case words s of
   name : kind : prices ->
@@ -29,9 +27,8 @@ parseBid s = case words s of
     _        -> Nothing
 
 -- | Parses a sequence of bids. Correctly formatted bids are returned
--- (in the order encountered), and an error message is printed for
--- each incorrectly formatted bid.
-
+-- | (in the order encountered), and an error message is printed for
+-- | each incorrectly formatted bid.
 parseBids :: String -> IO [Trader]
 parseBids s = concat <$> mapM (check . parseBid) (lines s)
   where
@@ -40,8 +37,7 @@ parseBids s = concat <$> mapM (check . parseBid) (lines s)
     return []
   check (Right bid) = return [bid]
 
--- | ...
-
+-- | Main
 main :: IO ()
 main = do
   args <- getArgs
@@ -54,26 +50,39 @@ main = do
       ]
   where process h = trade =<< parseBids =<< hGetContents h
 
--- | ...
-
+-- | trade make the purchases by calling transactions and deals, and prints out
+-- | the result.
 trade :: [Trader] -> IO ()
 trade bids = let (askT,bidT) = transactions bids
              in putStr $  deals askT bidT
-  
+
+-- | Takes an BinHeap Trade for the asks and another BinHeap Trade for the bids,
+-- | and returns the result of the closed deals and order book.
 deals :: BinHeap Trade -> BinHeap Trade -> String
 deals b1 b2 
-  | ask > bid = "\nOrderbok:\n" ++
+  | (b1 == Heap [] || b1 == Empty) &&
+    (b2 == Heap [] || b2 == Empty) = unlines ["Orderbok:","Säljare: "
+                                             ,"Köpare: "]
+  | (b1 == Heap [] || b1 == Empty) = unlines ["Orderbok:","Säljare: "
+                                             ,"Köpare:" 
+                                              ++ f' (listElements (>) b2)]
+  | (b2 == Heap [] || b2 == Empty) = unlines ["Orderbok:"
+                                             ,"Säljare: "
+                                              ++ f' (listElements (<) b1)
+                                             ,"Köpare: "]
+  | (fst . getPrio (<)) b1 > (fst . getPrio (>)) b2 = "\nOrderbok:\n" ++
                 "Säljare: " ++ f' (listElements (<) b1) ++
                 "Köpare: " ++ f' (listElements (>) b2)
-  | otherwise = buyer ++ " köper från " ++ seller ++ " för " ++ show ask
-                  ++ " kr.\n"
+  | otherwise = (snd . getPrio (>)) b2 ++ " köper från "
+                  ++ (snd . getPrio (<)) b1 ++ " för "
+                  ++ (show . fst . getPrio (<)) b1 ++ " kr.\n"
                   ++ deals (deletePrio (<) b1) (deletePrio (>) b2)
-  where (ask,seller)  = getPrio (<) b1
-        (bid,buyer)   = getPrio (>) b2
-        f' []         = "\n"
-        f' ((k,n):[]) = n ++ " " ++ show k ++ "\n"
+  where f' []         = ""
+        f' ((k,n):[]) = n ++ " " ++ show k ++ ""
         f' ((k,n):es) = n ++ " " ++ show k ++ ", " ++ f' es
         
+-- | Takes a list of traders and puts them in two BinHeap Trade trees (asks and
+-- | bids)
 transactions :: [Trader] -> (BinHeap Trade, BinHeap Trade)
 transactions bids = t' (reverse bids)
   where
@@ -91,15 +100,3 @@ t' (bid@(Trader name tt old new):bids)
       Ask -> (update (<) (new,name) a, b)
       Bid -> (a, update (>) (new,name) b)
   where (a,b) = t' bids
- 
-{-  
-update :: [Trade] -> PriQue a -> PriQue a -> PriQue a
-update ((Trade n tt op np):bs) p1 p2 =
-  case tt of
-    Ask -> case op == np  of
-      True  -> addAsk op p1 
-      False -> decreaseKey 
-    Bid -> case op == np of
-      True  -> addBid op p2
-      False -> increaseKey 
--}

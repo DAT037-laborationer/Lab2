@@ -1,72 +1,8 @@
-{-
-module PriorityQueue (
-    PriQue,   -- type of priority queues
-    emptyQue, -- PriQue a
-    isEmpty,  -- PriQue a -> Bool
-    addBid,      -- Ord a => a -> PriQue a -> PriQue a
-    addAsk,      -- Ord a => a -> PriQue a -> PriQue a
-    getMin,   -- Ord a => PriQue a -> a
-    removeMin -- Ord a => PriQue a -> PriQue a
-) where
-
---datatyp för prioriteringskö
-data PriQue a = Empty |
-                Node a (PriQue a) (PriQue a)
-                deriving ( Eq, Show, Read )
-
-emptyQue :: PriQue a
-emptyQue = Empty
-
-isEmpty :: PriQue a -> Bool 
-isEmpty Empty = True
-isEmpty _     = False
-
-addBid :: Ord a => (a,String) -> PriQue (a,String) -> PriQue (a,String)
-addBid a Empty        = Node a Empty Empty
-addBid a (Node b l r) 
-  | fst a > fst b = Node a r (addBid b l)
-  | otherwise     = Node b r (addBid a l)
-
-addAsk :: Ord a => (a,String) -> PriQue (a,String) -> PriQue (a,String)
-addAsk a Empty        = Node a Empty Empty
-addAsk a (Node b l r) 
-  | fst a < fst b = Node a r (addAsk b l)
-  | otherwise     = Node b r (addAsk a l)
-
-decreaseKey = undefined
-
-increaseKey = undefined
-
-getMin :: Ord a => PriQue a -> a
-getMin Empty         = error "NoSuchElementException"
-getMin (Node a _ _ ) = a
-
-getMostRight :: Ord a => PriQue a -> (a, PriQue a)
-getMostRight (Node a Empty Empty) = (a,Empty)
-getMostRight (Node a l r) = ( b, Node a bt l )
-                            where (b,bt) =  getMostRight r
-
-restore :: Ord a => a -> PriQue a -> PriQue a -> PriQue a
-restore a Empty Empty   = Node a Empty Empty
-restore a Empty bt@(Node b Empty Empty) 
-      | a < b     = Node a Empty bt
-      | otherwise = Node b Empty (Node a Empty Empty)
-restore a bt@(Node b bl br) ct@(Node c cl cr)
-      | a < b && a < c = Node a bt ct
-      | b < c          = Node b (restore a bl br) ct
-      | otherwise      = Node c bt (restore a cl cr)
-
-removeMin :: Ord a => PriQue a -> PriQue a
-removeMin Empty = error "IllegalStateException"
-removeMin (Node _ l r )   = restore b bt l 
-                            where (b,bt) = getMostRight r
--}
-
 module PriorityQueue where
 
 -- | Data structure for a binomial tree, which has a root value and
 -- | a list of subtrees.
-data Node a = Null | Node a [BinHeap a] 
+data Node a = Node a [BinHeap a] 
   deriving (Show)
 
 -- | Data structure for a binomial heap, which is a collection
@@ -126,30 +62,30 @@ sortHeap (Heap (n:ns))
 merge :: (Integer -> Integer -> Bool) -> BinHeap Trade -> BinHeap Trade
            -> BinHeap Trade
 merge f Empty Empty = merge f (Heap []) (Heap [])
-merge f Empty h     = merge f h (Heap [])
-merge f h Empty     = merge f h (Heap [])
+merge f Empty b     = merge f b (Heap [])
+merge f b Empty     = merge f b (Heap [])
 merge _ (Heap []) (Heap [])
                     = Empty
-merge f (Heap []) h = merge f h (Heap [])
-merge f h (Heap []) 
-  | duplicates [ order x | x <- extract h ]
-      = merge f (Heap [headN h]) (Heap (tailN h))
+merge f (Heap []) b = merge f b (Heap [])
+merge f b (Heap []) 
+  | duplicates [ order x | x <- extract b ]
+      = merge f (Heap [headN b]) (Heap (tailN b))
   | otherwise
-      = h
-merge f h1 h2
-  | headN h1 == headN h2
-      = merge f (Heap [combine f (headN h1) (headN h2)])
-          (Heap (tailN h1) + Heap (tailN h2))
-  | headN h1 < headN h2
-      = Heap [headN h1] + merge f (Heap (tailN h1)) h2
+      = b
+merge f b1 b2
+  | headN b1 == headN b2
+      = merge f (Heap [combine f (headN b1) (headN b2)])
+          (Heap (tailN b1) + Heap (tailN b2))
+  | headN b1 < headN b2
+      = Heap [headN b1] + merge f (Heap (tailN b1)) b2
   | otherwise
-      = Heap [headN h2] + merge f (Heap (tailN h2)) h1
+      = Heap [headN b2] + merge f (Heap (tailN b2)) b1
 
 -- | Returns the head and tail, respectively, of a Heap's nodes.
 headN :: BinHeap Trade -> Node Trade
 tailN :: BinHeap Trade -> [Node Trade]
 headN b 
-  | b == Empty || b == Heap [] = Null
+  | b == Empty || b == Heap [] = error "Can't use headN on empty list."
   | otherwise                  = (head . extract) b
 tailN   = tail . extract
 
@@ -173,9 +109,6 @@ duplicates (i:is) = i == head is || duplicates (is)
 extract :: Ord a => BinHeap a -> [Node a]
 extract (Heap ns) = ns
 
--------------------------------------------------------------------------------
-{- Node functions -}
-
 -- | Returns the Trade element of a node.
 element :: Node Trade -> Trade
 element (Node a _) = a
@@ -190,11 +123,8 @@ name = snd . element
 
 -- | Returns the children of a node.
 children :: Node Trade -> [BinHeap Trade] 
-children Null        = []
 children (Node _ []) = []
 children (Node _ h)  = h
-
--------------------------------------------------------------------------------
 
 -- | Adds an bid to a queue.
 addBid :: Trade -> BinHeap Trade -> BinHeap Trade
@@ -208,7 +138,10 @@ addAsk a b = merge (<) (addAsk a Empty) b
 
 -- | Deletes the most prioritized element in a heap.
 deletePrio :: (Integer -> Integer -> Bool) -> BinHeap Trade -> BinHeap Trade
-deletePrio f b = merge f (addHeaps $ children $ headN $ fst $ findPrio f b) (snd $ findPrio f b)
+deletePrio f b
+  | b == Heap [] || b == Empty = emptyQueue
+  | otherwise
+      = merge f (addHeaps $ children $ headN $ fst $ findPrio f b) (snd $ findPrio f b)
 
 -- | Adds a list of heaps into a single heap.
 addHeaps :: [BinHeap Trade] -> BinHeap Trade
@@ -221,7 +154,7 @@ findPrio :: (Integer -> Integer -> Bool) -> BinHeap Trade
               -> (BinHeap Trade, BinHeap Trade)
 findPrio f Empty           = (Empty, Empty)
 findPrio f (Heap [])       = (Empty, Empty)
-findPrio f (Heap (n : [])) = (Heap [n], Empty)
+findPrio _ (Heap (n : [])) = (Heap [n], Empty)
 findPrio f (Heap (n1 : n2 : []))
   | f (key n1) (key n2)    = (Heap [n1], Heap [n2])
   | otherwise              = (Heap [n2], Heap [n1]) 
@@ -233,7 +166,9 @@ findPrio f (Heap (n1 : n2 : ns))
 
 -- | Returns the top node element
 getPrio :: (Integer -> Integer -> Bool) -> BinHeap Trade -> Trade
-getPrio f b = (element . headN . fst . findPrio f) b
+getPrio f b
+  | b == Heap [] || b == Empty = error "Can't use getPrio on empty heap."
+  | otherwise = (element . headN . fst . findPrio f) b
 
 -- | Returns a list of all the elements in a heap arranged from highest
 -- | priority to lowest.
@@ -249,10 +184,10 @@ update :: (Integer -> Integer -> Bool) -> Trade -> BinHeap Trade
 update f t b
   | b == Empty || b == Heap [] = emptyQueue
   | not (isInTree t bh) = bh + update f t bt
-  | otherwise                  = case not (f (fst t) ((key . headN) b)) of
+  | otherwise                  = case not (f (fst t) (key n)) of
       {- The new element would not violate the properties of the heap, if
          it later would be in a subtree of the top node.                   -}
-      True  -> case snd t == (name . headN) b of
+      True  -> case snd t == name n of
         {- The top node contains the trader, so we swap the old key value
            with the new.                                                   -}
         True  -> bubbleDown f (Heap [ Node t c ]) + bt
@@ -263,32 +198,36 @@ update f t b
       {- The new element violates the properties of the heap if it is not
          replaced here, so we find the old element while bubbling down.    -}
       False -> findAndBubbleDown f b t
-  where c  = (children . headN) b
-        e  = (element . headN) b
+  where n  = headN b
+        c  = children n
+        e  = element n
+        bh = Heap [n]         
         bt = (Heap . tailN) b
-        bh = Heap [headN b]
   
 -- | Checks whether a Trade is in the BinHeap tree or not. 
 isInTree :: Trade -> BinHeap Trade -> Bool
 isInTree t b
   | b == Empty || b == Heap [] = False
-  | snd t == name (headN b)    = True
+  | snd t == name n            = True
   | otherwise                  = or [ isInTree t x
-                                    | x <- (children . headN) b ] 
+                                    | x <- children n ]
+  where n = headN b 
 
 -- | Bubbles down the top element in a binomial tree.
 bubbleDown :: (Integer -> Integer -> Bool) -> BinHeap Trade -> BinHeap Trade
 bubbleDown f b
-  | (order . headN) b == 0 = b
-  | f k k'                 = b
+  | b == Heap [] || b == Empty = emptyQueue
+  | order n == 0               = b
+  | f k k'                     = b
   | otherwise
       = Heap [ Node e' (bf ++ [ bubbleDown f (Heap [Node e c']) ] ++ bb) ] 
-  where (bf,b',bb) = nodePrio f c
-        c          = (children . headN) b
+  where n          = headN b
+        (bf,b',bb) = nodePrio f c
+        c          = children n
         c'         = (children . headN) b'
-        e          = (element . headN) b
+        e          = element n
         e'         = (element . headN) b'
-        k          = (key . headN) b
+        k          = key n
         k'         = (key . headN) b'
         
 -- | Finds an element in a tree and replaces it, while bubbling down.
@@ -297,16 +236,17 @@ findAndBubbleDown :: (Integer -> Integer -> Bool) -> BinHeap Trade -> Trade
 findAndBubbleDown f b t = f' f b t t
   where f' f b t r 
           | b == Empty || b == Heap [] = emptyQueue
-          | snd t == (name . headN) b  = bubbleDown f (Heap [Node t c] + bt)
+          | snd t == snd e             = bubbleDown f (Heap [Node r c] + bt)
           | not (isInTree t bh)        = bh + f' f bt t r
-          | otherwise                  = case f (fst r) ((key . headN) b) of
+          | otherwise                  = case f (fst r) (key n) of
               True  -> Heap [ Node r [ f' f x t e | x <- c ] ]
               False -> Heap [ Node e [ f' f x t r | x <- c ] ]
-          where hc = if c /= [] then head c else Empty
-                c  = (children . headN) b
-                e  = (element . headN) b
-                bt = (Heap . tailN) b
+          where n  = headN b
+                hc = if c /= [] then head c else Empty
+                c  = children n
+                e  = element n
                 bh = Heap [headN b]
+                bt = (Heap . tailN) b
 
 -- | Finds the most prioritized top node in a list of heaps, and returns a
 -- | tuple with a list of the nodes in front of the prioritized node, the
@@ -317,9 +257,11 @@ nodePrio :: (Integer -> Integer -> Bool) -> [BinHeap Trade]
 nodePrio _ []     = ([], Empty, [])
 nodePrio _ (b:[]) = ([], b, [])
 nodePrio f x@(b:bs) 
-  | (key . headN) b == np = ([], b, bs)
-  | otherwise             = ([b] ++ bf, b', bb)
-  where np         = foldl f' k1 [ (key . headN) x | x <- bs]
+  | b == Heap [] || b == Empty = nodePrio f bs
+  | key n == np                = ([], b, bs)
+  | otherwise                  = ([b] ++ bf, b', bb)
+  where n          = headN b
+        np         = foldl f' k1 [ (key . headN) x | x <- bs]
         f' a b     = if f a b then a else b 
         k1         = (key . headN) b
         k2         = (key . headN . head) bs
